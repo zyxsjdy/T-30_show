@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bridging the Signal Blind Spots</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['"IBM Plex Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          display: ['"IBM Plex Sans Condensed"', '"IBM Plex Sans"', 'sans-serif']
+        },
+        colors: {
+          ink: '#081116',
+          panel: '#102029',
+          line: '#1d3944',
+          mist: '#9eb0bc',
+          foam: '#e7f2f4',
+          signal: '#2ee9c0',
+          sky: '#8eb4ff',
+          amber: '#f0b429'
+        }
+      }
+    }
+  };
+</script>
+<style>
+  :root { color-scheme: dark; }
+  body { background: #081116; }
+  .exhibit-bg {
+    background:
+      radial-gradient(900px 420px at 8% -10%, rgba(46, 233, 192, 0.16), transparent 60%),
+      radial-gradient(700px 380px at 100% 0%, rgba(142, 180, 255, 0.12), transparent 55%),
+      #081116;
+  }
+  .stage { position: relative; height: min(72vh, 680px); min-height: 440px; background: #071016; }
+  .stage canvas { display: block; width: 100%; height: 100%; position: relative; z-index: 1; }
+  #tags { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+  .tag {
+    position: absolute; left: 0; top: 0; transform: translate(-50%, -130%);
+    pointer-events: none; white-space: nowrap;
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #d7fff6; background: rgba(8, 17, 22, 0.78);
+    border: 1px solid rgba(46, 233, 192, 0.45);
+    padding: 3px 7px; border-radius: 999px;
+  }
+  .hover-tip {
+    position: fixed; z-index: 40; max-width: 240px; pointer-events: none;
+    background: #102029; color: #e7f2f4; border: 1px solid #2ee9c0;
+    border-radius: 10px; padding: 8px 10px; font-size: 13px; line-height: 1.35;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  }
+  .choice[aria-pressed="true"] { background: rgba(46, 233, 192, 0.15); color: #2ee9c0; }
+  .choice[aria-pressed="false"] { color: #9eb0bc; }
+  .choice[aria-pressed="false"]:hover { color: #e7f2f4; }
+  .ruler { position: relative; height: 46px; margin-top: 28px; }
+  .ruler .track {
+    position: absolute; left: 0; right: 0; top: 18px; height: 4px; border-radius: 999px;
+    background: linear-gradient(90deg, #fb7185, #f0b429 38%, #2ee9c0);
+  }
+  .ruler .mark { position: absolute; top: 0; transform: translateX(-50%); text-align: center; width: 120px; }
+  .ruler .mark.end { transform: translateX(-88%); text-align: right; }
+  .ruler .dot { width: 10px; height: 10px; border-radius: 999px; margin: 13px auto 0; border: 2px solid #081116; }
+  button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid #2ee9c0; outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) {
+    .pulse { animation: none !important; }
+  }
+  @keyframes drift {
+    from { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: -48; }
+  }
+  .flow { stroke-dasharray: 7 9; animation: drift 1.4s linear infinite; }
+</style>
+</head>
+<body class="exhibit-bg text-foam font-sans antialiased">
+<a href="#scene" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-panel focus:px-3 focus:py-2">Skip to the 3D scene</a>
+
+<header class="sticky top-0 z-30 border-b border-line/80 bg-ink/85 backdrop-blur">
+  <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
+    <p class="font-display text-sm uppercase tracking-[0.18em] text-signal">City radio link</p>
+    <nav class="flex items-center gap-4 text-sm text-mist">
+      <a href="#scene" class="hover:text-foam">Scene</a>
+      <a href="#paths" class="hover:text-foam">Two paths</a>
+      <a href="#signal" class="hover:text-foam">Signal</a>
+      <a href="#sandbox" class="hover:text-foam">What-if</a>
+      <a href="#scores" class="hover:text-foam">Scores</a>
+      <button id="tour-open" type="button" class="rounded-full border border-signal/50 px-3 py-1 text-signal hover:bg-signal/10">Guide me</button>
+    </nav>
+  </div>
+</header>
+
+<main class="mx-auto max-w-6xl px-5 pb-20">
+  <section class="pt-10">
+    <h1 class="max-w-4xl font-display text-4xl font-semibold leading-[1.05] text-foam sm:text-6xl">
+      Bridging the Signal Blind Spots: Flying Drones &amp; Smart Mirrors in the Smart City
+    </h1>
+    <p class="mt-5 max-w-2xl text-lg leading-relaxed text-mist">
+      A straight radio path dies behind concrete. A flying receiver and a wall of tiny mirrors keep a path that can still be measured.
+    </p>
+  </section>
+
+  <section id="scene" class="mt-8 overflow-hidden rounded-2xl border border-line bg-panel">
+    <div class="flex flex-wrap items-end justify-between gap-3 border-b border-line px-5 py-4">
+      <div>
+        <h2 class="font-display text-2xl">The link</h2>
+        <p class="mt-1 max-w-2xl text-sm text-mist">Drag to turn the model. Scroll to zoom. Click the mast, the panel, a drone, the block, or a tower.</p>
+      </div>
+      <p class="text-xs uppercase tracking-[0.14em] text-mist">Distances in metres · drones and panel enlarged</p>
+    </div>
+    <div id="stage" class="stage">
+      <div id="tags"></div>
+      <p id="scene-fallback" hidden class="absolute inset-0 grid place-items-center px-8 text-center text-mist">This browser could not start the 3D view. The scores below are still on the page.</p>
+    </div>
+    <div class="grid gap-4 border-t border-line px-5 py-4 lg:grid-cols-[1.2fr_0.8fr]">
+      <div id="detail" class="text-sm leading-relaxed text-mist">
+        <p class="font-medium text-foam">Click any piece of the model.</p>
+        <p class="mt-1">The skyline is only scenery. The link uses the distance from the mast to each drone, the bounce off the panel, and one marked block. Rays do not bounce off those towers.</p>
+      </div>
+      <ul class="grid grid-cols-2 gap-2 text-xs text-mist">
+        <li class="flex items-center gap-2"><span class="h-2 w-2 shrink-0 rounded-full bg-sky"></span> Direct cruise to the high drone</li>
+        <li class="flex items-center gap-2"><span class="h-2 w-2 shrink-0 rounded-full bg-signal"></span> Bounce off the panel to the low drone</li>
+        <li class="flex items-center gap-2"><span class="h-2 w-2 shrink-0 rounded-full bg-rose-400"></span> Straight path left out of the equation</li>
+        <li class="flex items-center gap-2"><span class="h-2 w-2 shrink-0 rounded-full bg-amber"></span> Block drawn on that straight path</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="paths" class="mt-14">
+    <h2 class="font-display text-3xl">Two paths for the low drone</h2>
+    <p class="mt-3 max-w-3xl text-mist">The high drone hears the mast directly. The low drone’s straight line is blocked. Its equation keeps the bounce: mast, then panel, then drone. These are two receivers on one link.</p>
+    <div class="mt-6 grid items-center gap-6 rounded-2xl border border-line bg-panel p-5 lg:grid-cols-2">
+      <div>
+        <div class="mb-4 flex gap-2">
+          <button id="show-blocked" type="button" class="rounded-full bg-rose-400/15 px-3 py-1.5 text-sm text-rose-200" aria-pressed="true">Straight path left out</button>
+          <button id="show-panel" type="button" class="rounded-full px-3 py-1.5 text-sm text-mist" aria-pressed="false">Panel path in the equation</button>
+        </div>
+        <svg id="path-svg" viewBox="0 0 640 300" class="w-full rounded-xl bg-ink" role="img" aria-label="Diagram of the mast, the block, the panel, and two drones">
+          <rect x="70" y="250" width="8" height="30" fill="#9eb0bc"></rect>
+          <circle cx="74" cy="242" r="8" fill="#8eb4ff"></circle>
+          <text x="74" y="286" text-anchor="middle" fill="#9eb0bc" font-size="12">Mast</text>
+          <rect x="250" y="168" width="70" height="82" rx="4" fill="#16303a"></rect>
+          <path d="M268 188 h8 v10 h-8 z M292 188 h8 v10 h-8 z M268 214 h8 v10 h-8 z" fill="#0b1a20"></path>
+          <text x="285" y="286" text-anchor="middle" fill="#9eb0bc" font-size="12">Block</text>
+          <rect x="470" y="150" width="46" height="100" fill="#16303a"></rect>
+          <g id="panel-face">
+            <rect x="458" y="168" width="16" height="46" fill="#102029" stroke="#2ee9c0"></rect>
+          </g>
+          <text x="486" y="286" text-anchor="middle" fill="#9eb0bc" font-size="12">Panel</text>
+          <g id="high-drone">
+            <circle cx="250" cy="70" r="8" fill="#8eb4ff"></circle>
+            <text x="250" y="52" text-anchor="middle" fill="#d7e7ff" font-size="12">High drone</text>
+          </g>
+          <g id="low-drone">
+            <circle cx="560" cy="196" r="8" fill="#2ee9c0"></circle>
+            <text x="560" y="176" text-anchor="middle" fill="#d7fff6" font-size="12">Low drone</text>
+          </g>
+          <path d="M82 242 C 140 140, 180 90, 242 74" fill="none" stroke="#8eb4ff" stroke-width="2.5" class="flow"></path>
+          <path id="blocked-path" d="M82 242 C 180 230, 230 210, 276 190" fill="none" stroke="#fb7185" stroke-width="2.5" stroke-dasharray="6 7"></path>
+          <path id="panel-path" d="M82 242 C 220 250, 360 230, 458 196" fill="none" stroke="#2ee9c0" stroke-width="2.5" class="flow" opacity="0.25"></path>
+          <path id="panel-hop" d="M474 190 C 510 170, 530 180, 552 194" fill="none" stroke="#2ee9c0" stroke-width="2.5" class="flow" opacity="0.25"></path>
+          <text id="path-x" x="300" y="168" fill="#fb7185" font-size="22">×</text>
+        </svg>
+      </div>
+      <div id="path-copy" class="text-sm leading-relaxed text-mist"></div>
+    </div>
+  </section>
+
+  <section id="signal" class="mt-14">
+    <h2 class="font-display text-3xl">What the signal looks like</h2>
+    <p class="mt-3 max-w-3xl text-mist">A short stretch of the fixed pilot. The smooth graph is the hidden path from the mast to that drone. The fuzzy graph is the wave that arrives, pilot and noise included. Each graph has its own height, so the shape stays visible.</p>
+    <div class="mt-6 grid gap-4 lg:grid-cols-2">
+      <article class="rounded-2xl border border-line bg-panel p-5">
+        <h3 class="font-display text-xl text-sky">High drone</h3>
+        <p class="mt-1 text-sm text-mist">Flying, direct from the mast. The path keeps changing, and the arriving wave jumps around it.</p>
+        <p class="mt-4 text-xs uppercase tracking-[0.14em] text-mist">Hidden path</p>
+        <svg id="spark-c0" class="mt-1 h-28 w-full" viewBox="0 0 560 112" role="img" aria-label="Hidden path strength of the high drone"></svg>
+        <p class="mt-3 text-xs uppercase tracking-[0.14em] text-mist">Wave that arrives</p>
+        <svg id="spark-y0" class="mt-1 h-28 w-full" viewBox="0 0 560 112" role="img" aria-label="Arriving wave of the high drone"></svg>
+      </article>
+      <article class="rounded-2xl border border-line bg-panel p-5">
+        <h3 class="font-display text-xl text-signal">Low drone</h3>
+        <p class="mt-1 text-sm text-mist">Hovering, by way of the panel. The path stays in a narrow band, and the arriving wave follows it.</p>
+        <p class="mt-4 text-xs uppercase tracking-[0.14em] text-mist">Hidden path</p>
+        <svg id="spark-c1" class="mt-1 h-28 w-full" viewBox="0 0 560 112" role="img" aria-label="Hidden path strength of the low drone"></svg>
+        <p class="mt-3 text-xs uppercase tracking-[0.14em] text-mist">Wave that arrives</p>
+        <svg id="spark-y1" class="mt-1 h-28 w-full" viewBox="0 0 560 112" role="img" aria-label="Arriving wave of the low drone"></svg>
+      </article>
+    </div>
+    <div class="mt-4 rounded-2xl border border-line bg-panel p-5">
+      <p class="text-xs uppercase tracking-[0.14em] text-mist">How the pilot power is shared</p>
+      <div class="mt-3 flex h-3 overflow-hidden rounded-full" role="img" aria-label="High drone 30 percent, low drone 70 percent of the pilot power">
+        <div class="h-full bg-sky" style="width:30%"></div>
+        <div class="h-full bg-signal" style="width:70%"></div>
+      </div>
+      <div class="mt-2 flex justify-between text-xs">
+        <p class="text-sky">High drone, 30%</p>
+        <p class="text-signal">Low drone, 70%</p>
+      </div>
+      <p class="mt-3 text-sm text-mist">High : low is 30% : 70%. The flying drone gets 30% of the pilot power, and the hovering drone gets 70%.</p>
+    </div>
+  </section>
+
+  <section id="sandbox" class="mt-14">
+    <h2 class="font-display text-3xl">What changes the estimate</h2>
+    <p class="mt-3 max-w-3xl text-mist">Three switches change the high drone’s channel-strength score on data seed 14. Each bar is a mean over five reservoir seeds. Motion changes that score by more than the choice of estimator. The two estimators separate when the drone hovers and a fresh pilot arrives only every fourth step. Two other draws of the sparse flying case are looser, and they stay off this chart.</p>
+    <div class="mt-6 grid gap-6 rounded-2xl border border-line bg-panel p-5 lg:grid-cols-[0.85fr_1.15fr]">
+      <fieldset class="space-y-6">
+        <legend class="sr-only">Scenario controls</legend>
+        <div>
+          <p class="text-sm text-foam">High-drone motion</p>
+          <div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="High-drone motion">
+            <button type="button" class="choice rounded-full border border-line px-3 py-1.5 text-sm" data-choice="motion" data-value="0" aria-pressed="true">Hover</button>
+            <button type="button" class="choice rounded-full border border-line px-3 py-1.5 text-sm" data-choice="motion" data-value="1" aria-pressed="false">Cruise</button>
+          </div>
+          <p class="mt-2 text-xs text-mist">Hover, or cruise east at 0.1 m each step.</p>
+        </div>
+        <div>
+          <p class="text-sm text-foam">Fading memory</p>
+          <div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Fading memory">
+            <button type="button" class="choice rounded-full border border-line px-3 py-1.5 text-sm" data-choice="corr" data-value="0" aria-pressed="true">Independent</button>
+            <button type="button" class="choice rounded-full border border-line px-3 py-1.5 text-sm" data-choice="corr" data-value="1" aria-pressed="false">Sticky, 0.95</button>
+          </div>
+          <p class="mt-2 text-xs text-mist">Independent fading, or sticky fading with correlation 0.95. Applied to the high drone.</p>
+        </div>
+        <div>
+          <p class="text-sm text-foam">Pilot spacing</p>
+          <div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Pilot spacing">
+            <button type="button" class="choice rounded-full border border-line px-3 py-1.5 text-sm" data-choice="pilot" data-value="0" aria-pressed="true">Every step</button>
+            <button type="button" class="choice rounded-full border border-line px-3 py-1.5 text-sm" data-choice="pilot" data-value="1" aria-pressed="false">Every 4th step</button>
+          </div>
+          <p class="mt-2 text-xs text-mist">A new pilot every step, or a new pilot only when the step number is a multiple of 4. In between, the estimator holds the last pilot.</p>
+        </div>
+      </fieldset>
+      <div>
+        <div class="relative h-72">
+          <canvas id="nmse-chart" aria-label="Bar chart of test NMSE"></canvas>
+          <p id="chart-empty" class="pointer-events-none absolute inset-0 z-10 hidden place-items-center rounded-xl border border-dashed border-line bg-ink/85 px-6 text-center text-sm text-mist">This pair was not scored. Independent fading was scored only with a pilot every step.</p>
+        </div>
+        <p id="scenario-note" class="mt-3 text-sm leading-relaxed text-mist"></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="scores" class="mt-14">
+    <h2 class="font-display text-3xl">The scores</h2>
+    <p class="mt-3 max-w-3xl text-mist">A more negative NMSE is a tighter match to the true channel. −10 dB means the squared error is one tenth of the channel’s power. −20 dB is one hundredth. The picture scores and the chart above use different setups.</p>
+
+    <div class="mt-6 rounded-2xl border border-line bg-panel p-5">
+      <h3 class="font-display text-xl">Sending a picture</h3>
+      <p class="mt-2 text-sm text-mist">Complex channel gain. Pilot power is split 99% to the high drone and 1% to the low drone. The low drone still receives the tighter estimate. It hovers beside a fixed panel, while the high drone cruises.</p>
+      <div class="relative mt-5 h-6" aria-hidden="true">
+        <div class="absolute left-0 right-0 top-3 h-1 rounded-full bg-gradient-to-r from-rose-400 via-amber to-signal"></div>
+        <span class="absolute top-1 h-4 w-0.5 bg-sky" style="left: 20.4%"></span>
+        <span class="absolute top-1 h-4 w-0.5 bg-signal" style="left: 92.7%"></span>
+      </div>
+      <div class="mt-2 flex justify-between text-xs">
+        <p class="text-sky">High drone, fixed pilot<br>−8.18 dB, about a fifth of the way toward −40</p>
+        <p class="text-right text-signal">Low drone, fixed pilot<br>−37.08 dB, near the tight end</p>
+      </div>
+      <p class="mt-3 text-xs text-mist">The bar runs from 0 dB on the left to −40 dB on the right. The low drone’s picture-phase score, −38.03 dB, sits just beside −37.08 dB. The high drone’s picture-phase score, −3.94 dB, would sit near the loose end.</p>
+    </div>
+
+    <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <article class="rounded-2xl border border-line bg-panel p-5">
+        <p class="text-xs uppercase tracking-[0.14em] text-mist">Fixed-pilot channel estimate</p>
+        <p class="mt-3 font-display text-4xl text-signal">−37.08 dB</p>
+        <p class="mt-2 text-sm leading-relaxed text-mist">Low drone, RIS path, fixed pilot. The matching high-drone score is <span class="text-foam">−8.18 dB</span>.</p>
+      </article>
+      <article class="rounded-2xl border border-line bg-panel p-5">
+        <p class="text-xs uppercase tracking-[0.14em] text-mist">During the picture</p>
+        <p class="mt-3 font-display text-4xl text-foam">−3.94 dB</p>
+        <p class="mt-2 text-sm leading-relaxed text-mist">High-drone estimate while the 32×18 picture is sent. The low drone stays at <span class="text-signal">−38.03 dB</span>.</p>
+      </article>
+      <article class="rounded-2xl border border-line bg-panel p-5">
+        <p class="text-xs uppercase tracking-[0.14em] text-mist">Bits in the picture</p>
+        <p class="mt-3 font-display text-4xl text-foam">0.35%</p>
+        <p class="mt-2 text-sm leading-relaxed text-mist">High drone, after error correction. 0.35% of the bits are wrong after correction, and 4.34% before it. On the 576-bit picture those rates are 2 bits and 25 bits. The low drone’s rate is 0% before correction and 0% after.</p>
+        <div class="mt-4" aria-hidden="true">
+          <div id="bit-before" class="flex flex-wrap gap-1"></div>
+          <p class="mt-2 text-xs text-mist">25 dots for the bits that were wrong before correction. Two stay bright: that is how many remain.</p>
+        </div>
+      </article>
+      <article class="rounded-2xl border border-line bg-panel p-5">
+        <p class="text-xs uppercase tracking-[0.14em] text-mist">The panel</p>
+        <p class="mt-3 font-display text-4xl text-foam">20</p>
+        <p class="mt-2 text-sm leading-relaxed text-mist">Mirror elements, 150 m east of the mast, 25 m up. Each step they take a new random phase of about 4° to 7°, at full reflection strength. Those phases are not steered into a beam.</p>
+      </article>
+      <article class="rounded-2xl border border-line bg-panel p-5 md:col-span-2">
+        <p class="text-xs uppercase tracking-[0.14em] text-mist">Channel strength</p>
+        <p class="mt-2 text-sm text-mist">Received-SNR target 20 dB, with 70% of the pilot power on the high drone. The task is channel strength. Equal-user scores, lower better:</p>
+        <div class="mt-3 h-48"><canvas id="early-chart" aria-label="Equal-user NMSE for three readouts"></canvas></div>
+        <p class="mt-2 text-sm text-mist">Per drone, the quantum-feature readout scores −18.78 dB on the high drone and −27.20 dB on the low drone. On this equal-user number the classical reservoir is a little tighter. With 99% of the pilot power on the high drone, the equal-user scores are −16.81 dB for the quantum-feature readout and −18.08 dB for the classical reservoir. The classical reservoir is ahead there too. The axis above is stretched so the small gap stays visible.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="mt-14">
+    <h2 class="font-display text-3xl">Words on this page</h2>
+    <dl class="mt-5 grid gap-4 md:grid-cols-2">
+      <div class="rounded-xl border border-line px-4 py-3">
+        <dt class="text-foam">Channel estimation</dt>
+        <dd class="mt-1 text-sm text-mist">Recovering the hidden multiplier that turned the sent pilot into the received one. With that multiplier, the receiver can read the data bits.</dd>
+      </div>
+      <div class="rounded-xl border border-line px-4 py-3">
+        <dt class="text-foam">NMSE</dt>
+        <dd class="mt-1 text-sm text-mist">Normalized mean squared error, shown in decibels. It compares the estimate with the true channel. More negative is tighter.</dd>
+      </div>
+      <div class="rounded-xl border border-line px-4 py-3">
+        <dt class="text-foam">RIS</dt>
+        <dd class="mt-1 text-sm text-mist">Reconfigurable intelligent surface: a panel of elements that can each change how they reflect a radio wave. Here each element uses a small random phase, at full reflection strength.</dd>
+      </div>
+      <div class="rounded-xl border border-line px-4 py-3">
+        <dt class="text-foam">RF-QRC</dt>
+        <dd class="mt-1 text-sm text-mist">The picture’s estimator. A short window of the received pilot becomes angles on a 5-qubit simulated circuit. Only the final linear fit is trained. The chart above compares a related vertical layout with a classical reservoir.</dd>
+      </div>
+    </dl>
+  </section>
+</main>
+
+<div id="hover-tip" class="hover-tip" hidden></div>
+
+<div id="tour" hidden class="fixed inset-x-0 bottom-0 z-40 border-t border-signal/40 bg-ink/95 px-5 py-4 backdrop-blur">
+  <div class="mx-auto flex max-w-6xl flex-wrap items-end justify-between gap-4">
+    <div class="max-w-2xl">
+      <p id="tour-kicker" class="text-xs uppercase tracking-[0.16em] text-signal"></p>
+      <p id="tour-body" class="mt-1 text-sm leading-relaxed text-mist"></p>
+    </div>
+    <div class="flex gap-2">
+      <button id="tour-prev" type="button" class="rounded-full border border-line px-3 py-1.5 text-sm">Back</button>
+      <button id="tour-next" type="button" class="rounded-full bg-signal px-3 py-1.5 text-sm font-medium text-ink">Next</button>
+      <button id="tour-close" type="button" class="rounded-full border border-line px-3 py-1.5 text-sm">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const DETAILS = {
+    bs: {
+      title: "The mast",
+      body: "One transmit antenna, 25 m up, at the origin. It sends one shared pilot. 99% of that pilot’s power goes to the high drone and 1% to the low drone."
+    },
+    ris: {
+      title: "The panel",
+      body: "Twenty mirror elements on a façade 150 m east of the mast, also 25 m up. The real panel is 5 m across. It is drawn larger so the elements read on screen. Each step, every element gets a new random phase between about 4° and 7°, and reflects at full strength. Those phases are not steered."
+    },
+    ud: {
+      title: "The high drone",
+      body: "Starts at 100 m east, 20 m north, and 60 m up, then cruises due east at 0.1 m each step. The view loops a short slice of that cruise so the drone stays in frame. Its equation is a direct hop from the mast. Its fixed-pilot complex estimate is −8.18 dB."
+    },
+    ur: {
+      title: "The low drone",
+      body: "Hovers at 160 m east, 20 m south, and 25 m up, wandering at most 2 m from that point. Its equation is the bounce off the panel. The straight mast-to-drone path is left out. Its fixed-pilot complex estimate is −37.08 dB."
+    },
+    block: {
+      title: "The block",
+      body: "Drawn at the midpoint of the mast and the low-drone hover: 80 m east, 10 m south, 25 m up. The box is 10 m by 6 m by 12 m. The channel model uses path length. The red dashed ray is the straight path the equations omit."
+    },
+    city: {
+      title: "The towers",
+      body: "Scenery, so the link has a city around it. The channel does not reflect off these buildings."
+    }
+  };
+
+  const PATH_COPY = {
+    blocked: "<p class=\"text-base text-foam\">The straight path is the one the drawing crosses out.</p><p class=\"mt-3\">The low drone’s equation never uses that line. There is no paired score for the same drone with the panel removed. The dashed ray is the omission, and the grey block marks the clutter on that line.</p><p class=\"mt-3\">The high drone’s teal path stays in both views. That hop is direct, from 60 m up.</p>",
+    panel: "<p class=\"text-base text-foam\">The bright path is the one in the low drone’s equation.</p><p class=\"mt-3\">Signal goes mast to panel to drone. On the fixed pilot, that channel’s complex estimate is −37.08 dB, beside −8.18 dB for the cruising high drone. While the picture is sent, those estimates are −38.03 dB and −3.94 dB.</p><p class=\"mt-3\">Almost all of the pilot power, 99%, goes to the high drone. The tighter low-drone score comes with less transmit power, not more.</p>"
+  };
+
+  const GRID = {
+    "0|0|0": row("S0h", -18.565908, 0.003882, 1, -18.397513, 0.027473, "The high drone holds still, fading is independent, and a pilot arrives every step. The two means, −18.57 dB and −18.40 dB, sit 0.17 dB apart. A fresh pilot already carries this channel. The quantum-feature memory used for this score is 1 step."),
+    "1|0|0": row("S0", -9.356637, 0.089162, 6, -9.222933, 0.128873, "The same independent fading, now with the high drone cruising. Both means fall to about −9.3 dB and stay 0.13 dB apart. Motion, on its own, is what makes this direct channel harder. Memory depth for the quantum-feature score is 6."),
+    "0|1|0": row("S1h", -20.278128, 0.027943, 5, -20.251134, 0.040157, "Sticky fading, correlation 0.95, and a hover, with a pilot every step. The means are −20.28 dB and −20.25 dB. The channel changes slowly and the pilot never skips, so the extra feature step has almost nothing to add."),
+    "1|1|0": row("S1d", -12.460405, 0.230355, 5, -12.261412, 0.185975, "Sticky fading while cruising, still with a pilot every step. The means are −12.46 dB and −12.26 dB, about 0.20 dB apart, with seed spreads of 0.23 dB and 0.19 dB. Memory depth for this quantum-feature score is 5."),
+    "0|1|1": row("S2h", -16.278031, 0.039741, 4, -13.990223, 0.842981, "The widest gap on this data seed. The high drone hovers in sticky fading, and a fresh pilot arrives only every fourth step. The vertical mean is −16.28 dB. The classical reservoir mean is −13.99 dB. That is 2.29 dB between those two printed means. The classical seed spread is wide, 0.84 dB, against 0.04 dB for the vertical mean. Memory depth for the vertical score is 4. On the same report a horizontal layout at memory 6 prints −16.34 dB."),
+    "1|1|1": row("S2d", -8.023948, 0.076862, 4, -7.550140, 0.217699, "The hardest of these six for the high drone on data seed 14: cruising, sticky fading, and a pilot only every fourth step. The means are −8.02 dB and −7.55 dB. The 0.47 dB gap is small beside the classical seed spread of 0.22 dB. Two other draws of this sparse flying case are looser. Data seed 17 prints −5.20 dB against −3.07 dB. Data seed 18 prints −2.26 dB against −0.14 dB. In both, the quantum-feature score is still the lower of the pair. Those draws are off this chart.")
+  };
+
+  function row(id, qrc, qrcStd, M, classical, classicalStd, note) {
+    return { id: id, qrc: qrc, qrcStd: qrcStd, M: M, classical: classical, classicalStd: classicalStd, note: note };
+  }
+
+  const choice = { motion: "0", corr: "0", pilot: "0" };
+  const scenarioNote = document.getElementById("scenario-note");
+  const chartEmpty = document.getElementById("chart-empty");
+  let nmseChart = null;
+  let earlyChart = null;
+
+  function fmt(value) {
+    return (value < 0 ? "−" : "") + Math.abs(value).toFixed(2);
+  }
+
+  function spread(value) {
+    return value >= 0.1 ? value.toFixed(2) : value.toFixed(3);
+  }
+
+  function setupCharts() {
+    if (typeof Chart === "undefined") {
+      scenarioNote.textContent = "The chart library did not load. The scores on this page still stand.";
+      return;
+    }
+    Chart.defaults.color = "#9eb0bc";
+    Chart.defaults.borderColor = "rgba(158, 176, 188, 0.15)";
+    Chart.defaults.font.family = '"IBM Plex Sans", sans-serif';
+    nmseChart = new Chart(document.getElementById("nmse-chart"), {
+      type: "bar",
+      data: {
+        labels: ["Classical reservoir", "Vertical quantum-feature readout"],
+        datasets: [{
+          data: [0, 0],
+          backgroundColor: ["#8eb4ff", "#2ee9c0"],
+          borderRadius: 6,
+          barPercentage: 0.62
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function (item) { return fmt(item.parsed.y) + " dB"; }
+            }
+          }
+        },
+        scales: {
+          y: {
+            min: -22,
+            max: 0,
+            title: { display: true, text: "Test NMSE (dB). Lower is tighter." }
+          },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+    earlyChart = new Chart(document.getElementById("early-chart"), {
+      type: "bar",
+      data: {
+        labels: ["Quantum-feature readout", "Linear window", "Classical reservoir"],
+        datasets: [{
+          data: [-21.20, -21.50, -21.77],
+          backgroundColor: ["#2ee9c0", "#8eb4ff", "#f0b429"],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: function (item) { return fmt(item.parsed.y) + " dB"; } } }
+        },
+        scales: {
+          y: { min: -22.1, max: -20.9, ticks: { stepSize: 0.3 } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  function paintChoices() {
+    document.querySelectorAll("[data-choice]").forEach(function (button) {
+      button.setAttribute("aria-pressed", choice[button.dataset.choice] === button.dataset.value ? "true" : "false");
+    });
+  }
+
+  function renderScenario() {
+    paintChoices();
+    const key = choice.motion + "|" + choice.corr + "|" + choice.pilot;
+    const found = GRID[key];
+    if (!found || !nmseChart) {
+      chartEmpty.classList.remove("hidden");
+      chartEmpty.classList.add("grid");
+      if (nmseChart) {
+        nmseChart.data.datasets[0].data = [null, null];
+        nmseChart.update();
+      }
+      scenarioNote.textContent = "Independent fading with a pilot only every fourth step was not part of this six-scenario grid. Move fading memory to sticky, or put the pilot back on every step.";
+      return;
+    }
+    chartEmpty.classList.add("hidden");
+    chartEmpty.classList.remove("grid");
+    nmseChart.data.datasets[0].data = [found.classical, found.qrc];
+    nmseChart.update();
+    scenarioNote.innerHTML = "<span class=\"text-foam\">" + found.id + ".</span> Classical reservoir " + fmt(found.classical) + " dB (seed spread " + spread(found.classicalStd) + "). Vertical quantum-feature readout " + fmt(found.qrc) + " dB (seed spread " + spread(found.qrcStd) + ", memory " + found.M + "). " + found.note;
+  }
+
+  function setPath(mode) {
+    const panelOn = mode === "panel";
+    document.getElementById("panel-path").setAttribute("opacity", panelOn ? "1" : "0.2");
+    document.getElementById("panel-hop").setAttribute("opacity", panelOn ? "1" : "0.2");
+    document.getElementById("blocked-path").setAttribute("opacity", panelOn ? "0.35" : "1");
+    document.getElementById("path-x").setAttribute("opacity", panelOn ? "0.25" : "1");
+    document.getElementById("show-blocked").setAttribute("aria-pressed", panelOn ? "false" : "true");
+    document.getElementById("show-panel").setAttribute("aria-pressed", panelOn ? "true" : "false");
+    document.getElementById("show-blocked").className = panelOn
+      ? "rounded-full px-3 py-1.5 text-sm text-mist"
+      : "rounded-full bg-rose-400/15 px-3 py-1.5 text-sm text-rose-200";
+    document.getElementById("show-panel").className = panelOn
+      ? "rounded-full bg-signal/15 px-3 py-1.5 text-sm text-signal"
+      : "rounded-full px-3 py-1.5 text-sm text-mist";
+    document.getElementById("path-copy").innerHTML = PATH_COPY[mode];
+  }
+
+  document.getElementById("show-blocked").addEventListener("click", function () { setPath("blocked"); });
+  document.getElementById("show-panel").addEventListener("click", function () { setPath("panel"); });
+  document.querySelectorAll("[data-choice]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      choice[button.dataset.choice] = button.dataset.value;
+      renderScenario();
+    });
+  });
+
+  const stage = document.getElementById("stage");
+  const tags = document.getElementById("tags");
+  const detail = document.getElementById("detail");
+  const hoverTip = document.getElementById("hover-tip");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let renderer;
+  let scene;
+  let camera;
+  let controls;
+  let ud;
+  let ur;
+  let beams;
+  let dashed;
+  let pulseA;
+  let pulseB;
+  let risCells = [];
+  let hitboxes = [];
+  let labelAnchors = [];
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  let pointerDown = null;
+
+  function showDetail(key) {
+    const item = DETAILS[key];
+    if (!item) return;
+    detail.innerHTML = "<p class=\"font-medium text-foam\">" + item.title + "</p><p class=\"mt-1\">" + item.body + "</p>";
+  }
+
+  function addTag(anchor, text) {
+    const el = document.createElement("span");
+    el.className = "tag";
+    el.textContent = text;
+    tags.appendChild(el);
+    labelAnchors.push({ anchor: anchor, el: el });
+  }
+
+  function makeDrone(color) {
+    const group = new THREE.Group();
+    const shell = new THREE.MeshStandardMaterial({ color: color, metalness: 0.45, roughness: 0.32, emissive: color, emissiveIntensity: 0.28 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.12, 0.24), shell);
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.18, 12), shell);
+    nose.rotation.z = -Math.PI / 2;
+    nose.position.x = 0.3;
+    const armMat = new THREE.MeshStandardMaterial({ color: 0xd5e4ee, metalness: 0.65, roughness: 0.28 });
+    const armA = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.03, 0.045), armMat);
+    const armB = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.03, 0.045), armMat);
+    armA.rotation.y = Math.PI / 4;
+    armB.rotation.y = -Math.PI / 4;
+    const rotors = new THREE.Group();
+    [[0.36, 0.36], [0.36, -0.36], [-0.36, 0.36], [-0.36, -0.36]].forEach(function (pair) {
+      const pivot = new THREE.Group();
+      pivot.position.set(pair[0], 0.06, pair[1]);
+      const disc = new THREE.Mesh(
+        new THREE.CircleGeometry(0.16, 18),
+        new THREE.MeshBasicMaterial({ color: 0xd9fff6, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
+      );
+      disc.rotation.x = -Math.PI / 2;
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.012, 0.028), new THREE.MeshBasicMaterial({ color: 0xf4fffd }));
+      pivot.add(disc, blade);
+      rotors.add(pivot);
+    });
+    group.add(body, nose, armA, armB, rotors);
+    group.userData.rotors = rotors;
+    return group;
+  }
+
+  function facadeMaterial() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 96;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#142833";
+    ctx.fillRect(0, 0, 64, 96);
+    for (let y = 8; y < 96; y += 14) {
+      for (let x = 8; x < 64; x += 14) {
+        ctx.fillStyle = ((x * 3 + y * 5) % 17) < 4 ? "#14584f" : "#0c1820";
+        ctx.fillRect(x, y, 6, 8);
+      }
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    return new THREE.MeshStandardMaterial({ map: texture, roughness: 0.9, metalness: 0.05 });
+  }
+
+  function makeBeam(color, opacity) {
+    const mesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.03, 1, 10, 1, true),
+      new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: opacity })
+    );
+    mesh.frustumCulled = false;
+    return mesh;
+  }
+
+  function pointBeam(mesh, a, b) {
+    const delta = new THREE.Vector3().subVectors(b, a);
+    const length = Math.max(delta.length(), 0.001);
+    mesh.scale.set(1, length, 1);
+    mesh.position.copy(a).add(b).multiplyScalar(0.5);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), delta.normalize());
+  }
+
+  function hit(radius, key, parent) {
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(radius, 10, 10),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+    );
+    mesh.userData.key = key;
+    parent.add(mesh);
+    hitboxes.push(mesh);
+    return mesh;
+  }
+
+  function initScene() {
+    if (typeof THREE === "undefined" || typeof THREE.OrbitControls !== "function") {
+      document.getElementById("scene-fallback").hidden = false;
+      return;
+    }
+    try {
+    scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x071016, 16, 36);
+    camera = new THREE.PerspectiveCamera(42, 1, 0.1, 80);
+    camera.position.set(7.2, 5.4, 11.5);
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setClearColor(0x071016, 1);
+    stage.appendChild(renderer.domElement);
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = !reduceMotion;
+    controls.target.set(6.2, 1.5, 0.2);
+    controls.maxPolarAngle = Math.PI / 2.05;
+    controls.minDistance = 3;
+    controls.maxDistance = 24;
+
+    scene.add(new THREE.HemisphereLight(0xb7e3ff, 0x10241c, 0.72));
+    const sun = new THREE.DirectionalLight(0xf4fbff, 0.85);
+    sun.position.set(8, 14, 6);
+    scene.add(sun);
+    const fill = new THREE.PointLight(0x2ee9c0, 1.15, 9);
+    fill.position.set(8.2, 2.2, 0.2);
+    scene.add(fill);
+
+    const ground = new THREE.Mesh(
+      new THREE.CircleGeometry(20, 72),
+      new THREE.MeshStandardMaterial({ color: 0x0c1820, roughness: 1, metalness: 0 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+    const grid = new THREE.GridHelper(22, 22, 0x1c4a55, 0x13242c);
+    grid.position.y = 0.012;
+    scene.add(grid);
+
+    const S = 0.055;
+    function mapPoint(x, y, z) {
+      return new THREE.Vector3(x * S, z * S, -y * S);
+    }
+    const bs = mapPoint(0, 0, 25);
+    const ris = mapPoint(150, 0, 25);
+    const block = mapPoint(80, -10, 25);
+
+    const mast = new THREE.Group();
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.045, 0.07, bs.y, 12),
+      new THREE.MeshStandardMaterial({ color: 0xc5d5df, metalness: 0.7, roughness: 0.25 })
+    );
+    pole.position.y = bs.y / 2;
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.16, 18, 14),
+      new THREE.MeshStandardMaterial({ color: 0x8eb4ff, emissive: 0x8eb4ff, emissiveIntensity: 0.7 })
+    );
+    head.position.copy(bs);
+    mast.add(pole, head);
+    scene.add(mast);
+    hit(0.45, "bs", head);
+    addTag(head, "Mast");
+
+    const risGroup = new THREE.Group();
+    risGroup.position.copy(ris);
+    const toBs = mapPoint(0, 0, 25).sub(ris).setY(0);
+    const toUr = mapPoint(160, -20, 25).sub(ris).setY(0);
+    const normal = toBs.normalize().add(toUr.normalize()).normalize();
+    risGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+    risGroup.scale.setScalar(0.72);
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.92, 0.05), new THREE.MeshStandardMaterial({ color: 0x18303a, roughness: 0.7 }));
+    const cellMat = function () {
+      return new THREE.MeshStandardMaterial({ color: 0x08332e, emissive: 0x2ee9c0, emissiveIntensity: 0.5, roughness: 0.35 });
+    };
+    for (let rowIndex = 0; rowIndex < 4; rowIndex += 1) {
+      for (let col = 0; col < 5; col += 1) {
+        const cell = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.05), cellMat());
+        cell.position.set(-0.42 + col * 0.21, -0.32 + rowIndex * 0.21, 0.05);
+        risCells.push(cell);
+        risGroup.add(cell);
+      }
+    }
+    risGroup.add(slab);
+    const risPole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.035, 0.05, ris.y, 10),
+      new THREE.MeshStandardMaterial({ color: 0x8ea0aa, metalness: 0.5, roughness: 0.4 })
+    );
+    risPole.position.set(ris.x, ris.y / 2, ris.z);
+    scene.add(risGroup, risPole);
+    const risHit = hit(0.85, "ris", risGroup);
+    risHit.position.set(0, 0, 0.1);
+    const risTag = new THREE.Object3D();
+    risTag.position.set(0, 0.95, 0);
+    risGroup.add(risTag);
+    addTag(risTag, "Panel");
+
+    const facade = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.3, 1.1), facadeMaterial());
+    facade.position.copy(ris).add(normal.clone().multiplyScalar(-0.85));
+    facade.position.y = 1.15;
+    scene.add(facade);
+
+    ud = makeDrone(0x8eb4ff);
+    ur = makeDrone(0x2ee9c0);
+    ud.scale.setScalar(0.42);
+    ur.scale.setScalar(0.42);
+    scene.add(ud, ur);
+    hit(0.9, "ud", ud);
+    hit(0.9, "ur", ur);
+    const udTag = new THREE.Object3D();
+    const urTag = new THREE.Object3D();
+    udTag.position.y = 1.15;
+    urTag.position.y = 1.35;
+    ud.add(udTag);
+    ur.add(urTag);
+    addTag(udTag, "High drone");
+    addTag(urTag, "Low drone");
+
+    const blocker = new THREE.Mesh(
+      new THREE.BoxGeometry(10 * S, 12 * S, 6 * S),
+      new THREE.MeshStandardMaterial({ color: 0x6b7280, transparent: true, opacity: 0.88, roughness: 0.85 })
+    );
+    blocker.position.copy(block);
+    scene.add(blocker);
+    hit(0.55, "block", blocker);
+    const cross = new THREE.Mesh(
+      new THREE.SphereGeometry(0.08, 12, 12),
+      new THREE.MeshBasicMaterial({ color: 0xfb7185 })
+    );
+    cross.position.copy(block).setY(block.y + 0.55);
+    scene.add(cross);
+
+    const towers = [
+      [-1.4, 2.6, -2.4, 0.9, 0.8],
+      [1.6, 3.4, -3.3, 1.05, 0.95],
+      [4.8, 2.2, -3.5, 0.75, 0.7],
+      [10.4, 3.6, -3.2, 1.15, 1.0],
+      [14.2, 2.4, 2.6, 0.8, 0.75]
+    ];
+    const skin = facadeMaterial();
+    towers.forEach(function (spec) {
+      const tower = new THREE.Mesh(new THREE.BoxGeometry(spec[3], spec[1], spec[4]), skin);
+      tower.position.set(spec[0], spec[1] / 2, spec[2]);
+      scene.add(tower);
+      hit(0.7, "city", tower);
+    });
+
+    beams = {
+      direct: makeBeam(0x8eb4ff, 0.8),
+      hop1: makeBeam(0x2ee9c0, 0.85),
+      hop2: makeBeam(0x2ee9c0, 0.85)
+    };
+    scene.add(beams.direct, beams.hop1, beams.hop2);
+    dashed = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([bs.clone(), block.clone()]),
+      new THREE.LineDashedMaterial({ color: 0xfb7185, dashSize: 0.16, gapSize: 0.1, transparent: true, opacity: 0.9 })
+    );
+    scene.add(dashed);
+    pulseA = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 12), new THREE.MeshBasicMaterial({ color: 0xe8fff9 }));
+    pulseB = pulseA.clone();
+    scene.add(pulseA, pulseB);
+
+    const clock = new THREE.Clock();
+    const bsTop = bs.clone();
+    const hover = mapPoint(160, -20, 25);
+    const bound = 2 * S;
+
+    function placeLabels() {
+      const width = stage.clientWidth;
+      const height = stage.clientHeight;
+      labelAnchors.forEach(function (item) {
+        const vector = item.anchor.getWorldPosition(new THREE.Vector3());
+        vector.project(camera);
+        const visible = vector.z < 1;
+        item.el.style.display = visible ? "block" : "none";
+        item.el.style.transform = "translate(" + ((vector.x * 0.5 + 0.5) * width) + "px, " + ((-vector.y * 0.5 + 0.5) * height) + "px) translate(-50%, -130%)";
+      });
+    }
+
+    function frame() {
+      const time = clock.getElapsedTime();
+      const cruise = reduceMotion ? 0.35 : (time % 14) / 14;
+      ud.position.copy(mapPoint(100 + cruise * 160, 20, 60));
+      ur.position.copy(hover);
+      if (!reduceMotion) {
+        ur.position.x += Math.sin(time * 0.7) * bound;
+        ur.position.z += Math.cos(time * 0.55) * bound;
+        ud.userData.rotors.children.forEach(function (rotor, index) { rotor.rotation.y += 0.35 + index * 0.02; });
+        ur.userData.rotors.children.forEach(function (rotor, index) { rotor.rotation.y += 0.35 + index * 0.02; });
+      }
+      pointBeam(beams.direct, bsTop, ud.position);
+      pointBeam(beams.hop1, bsTop, ris);
+      pointBeam(beams.hop2, ris, ur.position);
+      const positions = dashed.geometry.attributes.position;
+      positions.setXYZ(0, bsTop.x, bsTop.y, bsTop.z);
+      positions.setXYZ(1, ur.position.x, ur.position.y, ur.position.z);
+      positions.needsUpdate = true;
+      dashed.geometry.computeBoundingSphere();
+      dashed.computeLineDistances();
+      const travel = reduceMotion ? 0.35 : (time * 0.18) % 1;
+      pulseA.position.lerpVectors(bsTop, ud.position, travel);
+      const along = travel < 0.5 ? travel * 2 : (travel - 0.5) * 2;
+      pulseB.position.lerpVectors(travel < 0.5 ? bsTop : ris, travel < 0.5 ? ris : ur.position, along);
+      risCells.forEach(function (cell, index) {
+        cell.material.emissiveIntensity = reduceMotion ? 0.7 : 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(time * 3 + index * 0.45));
+      });
+      if (touring) {
+        tourT = Math.min(1, tourT + (reduceMotion ? 1 : 0.03));
+        const eased = tourT * tourT * (3 - 2 * tourT);
+        camera.position.lerpVectors(tourFrom, tourTo, eased);
+        controls.target.lerpVectors(lookFrom, lookTo, eased);
+        if (tourT >= 1) touring = false;
+      }
+      controls.update();
+      renderer.render(scene, camera);
+      placeLabels();
+      requestAnimationFrame(frame);
+    }
+
+    function resize() {
+      const width = stage.clientWidth;
+      const height = stage.clientHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height, false);
+    }
+    resize();
+    window.addEventListener("resize", resize);
+    frame();
+
+    function pick(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(hitboxes, false);
+      return hits.length ? hits[0].object.userData.key : null;
+    }
+    renderer.domElement.addEventListener("pointerdown", function (event) {
+      pointerDown = { x: event.clientX, y: event.clientY };
+      touring = false;
+    });
+    renderer.domElement.addEventListener("pointerup", function (event) {
+      if (!pointerDown) return;
+      const moved = Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y);
+      pointerDown = null;
+      if (moved > 6) return;
+      const key = pick(event);
+      if (key) showDetail(key);
+    });
+    renderer.domElement.addEventListener("pointermove", function (event) {
+      const key = pick(event);
+      if (!key) {
+        hoverTip.hidden = true;
+        renderer.domElement.style.cursor = "grab";
+        return;
+      }
+      renderer.domElement.style.cursor = "pointer";
+      hoverTip.hidden = false;
+      const sentence = DETAILS[key].body.split(". ")[0];
+      hoverTip.textContent = DETAILS[key].title + ". " + sentence + (sentence.endsWith(".") ? "" : ".");
+      hoverTip.style.left = Math.min(event.clientX + 14, window.innerWidth - 260) + "px";
+      hoverTip.style.top = (event.clientY + 16) + "px";
+    });
+    renderer.domElement.addEventListener("pointerleave", function () { hoverTip.hidden = true; });
+    } catch (err) {
+      console.error(err);
+      document.getElementById("scene-fallback").hidden = false;
+    }
+  }
+
+  const TOUR = [
+    { kicker: "1 of 6 · The link", body: "One mast, a high drone on a direct hop, and a low drone that only hears the bounce. Drag the scene whenever you like. That releases the guided camera.", cam: [7.2, 5.4, 11.5], look: [6.2, 1.5, 0.2] },
+    { kicker: "2 of 6 · Mast", body: DETAILS.bs.body, cam: [2.4, 2.6, 4.2], look: [0.2, 1.3, 0], key: "bs" },
+    { kicker: "3 of 6 · Block", body: DETAILS.block.body, cam: [6.6, 2.4, 4.8], look: [4.4, 1.4, 0.6], key: "block" },
+    { kicker: "4 of 6 · Panel", body: DETAILS.ris.body, cam: [10.2, 2.8, 4.6], look: [8.2, 1.5, 0.1], key: "ris" },
+    { kicker: "5 of 6 · Two drones", body: "The teal craft is the open-air cruise. The green craft hovers just past the panel. Their scores are a portrait of two links, not a before-and-after on one drone.", cam: [11.5, 4.2, 6.5], look: [8.5, 2.2, -0.4], key: "ud" },
+    { kicker: "6 of 6 · The switches", body: "Below the scene, the buttons replay six settings for the high drone on data seed 14. On four of them the two estimators sit within 0.2 dB. The separation that shows up is the hover with a pilot only every fourth step. The same skipped pilot while cruising leaves a much smaller gap, and other draws of that flying case are looser still.", cam: [7.2, 5.4, 11.5], look: [6.2, 1.5, 0.2] }
+  ];
+  let tourIndex = 0;
+  let touring = false;
+  let tourT = 1;
+  let tourFrom = null;
+  let tourTo = null;
+  let lookFrom = null;
+  let lookTo = null;
+  const tourEl = document.getElementById("tour");
+
+  function openTour(index) {
+    tourIndex = index;
+    const step = TOUR[index];
+    tourEl.hidden = false;
+    document.getElementById("tour-kicker").textContent = step.kicker;
+    document.getElementById("tour-body").textContent = step.body;
+    document.getElementById("tour-next").textContent = index === TOUR.length - 1 ? "Done" : "Next";
+    if (step.key) showDetail(step.key);
+    if (!camera || typeof THREE === "undefined") return;
+    if (!tourFrom) {
+      tourFrom = new THREE.Vector3();
+      tourTo = new THREE.Vector3();
+      lookFrom = new THREE.Vector3();
+      lookTo = new THREE.Vector3();
+    }
+    tourFrom.copy(camera.position);
+    lookFrom.copy(controls.target);
+    tourTo.set(step.cam[0], step.cam[1], step.cam[2]);
+    lookTo.set(step.look[0], step.look[1], step.look[2]);
+    tourT = 0;
+    touring = true;
+  }
+
+  document.getElementById("tour-open").addEventListener("click", function () { openTour(0); });
+  document.getElementById("tour-next").addEventListener("click", function () {
+    if (tourIndex >= TOUR.length - 1) {
+      tourEl.hidden = true;
+      touring = false;
+      return;
+    }
+    openTour(tourIndex + 1);
+  });
+  document.getElementById("tour-prev").addEventListener("click", function () { openTour(Math.max(0, tourIndex - 1)); });
+  document.getElementById("tour-close").addEventListener("click", function () { tourEl.hidden = true; touring = false; });
+
+  function drawSpark(id, values, stroke, fill) {
+    const svg = document.getElementById(id);
+    if (!svg) return;
+    const width = 560;
+    const height = 112;
+    const pad = 12;
+    const peak = Math.max.apply(null, values) * 1.12;
+    const points = values.map(function (value, index) {
+      const x = pad + (index / (values.length - 1)) * (width - pad * 2);
+      const y = height - pad - (value / peak) * (height - pad * 2);
+      return x.toFixed(1) + "," + y.toFixed(1);
+    }).join(" ");
+    const area = pad + "," + (height - pad) + " " + points + " " + (width - pad) + "," + (height - pad);
+    svg.innerHTML = '<polygon points="' + area + '" fill="' + fill + '"></polygon>'
+      + '<polyline points="' + points + '" fill="none" stroke="' + stroke + '" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"></polyline>'
+      + '<line x1="' + pad + '" y1="' + (height - pad) + '" x2="' + (width - pad) + '" y2="' + (height - pad) + '" stroke="rgba(158,176,188,0.28)"></line>';
+  }
+
+  function drawSignals() {
+    const traces = {
+      "spark-c0": ["0.140,0.171,0.206,0.220,0.212,0.172,0.186,0.185,0.239,0.160,0.220,0.186,0.208,0.240,0.160,0.231,0.160,0.211,0.221,0.149,0.157,0.151,0.238,0.188,0.284,0.204,0.143,0.161,0.227,0.134,0.233,0.153,0.225,0.195,0.219,0.240,0.195,0.209,0.196,0.209,0.253,0.298,0.173,0.231,0.219,0.202,0.227,0.178,0.236,0.229,0.160,0.203,0.235,0.220,0.191,0.211,0.185,0.159,0.181,0.201,0.209,0.169,0.219,0.186,0.174,0.271,0.238,0.264,0.206,0.155,0.239,0.236,0.193,0.198,0.196,0.232,0.262,0.227,0.242,0.244,0.204,0.214,0.217,0.236,0.166,0.178,0.227,0.201,0.136,0.230,0.128,0.107,0.165,0.140,0.253,0.188,0.177,0.178,0.147,0.154,0.213,0.231,0.197,0.213,0.272,0.272,0.207,0.264,0.188,0.192,0.210,0.204,0.189,0.194,0.145,0.158,0.157,0.225,0.238,0.212,0.187,0.164,0.238,0.227,0.178,0.198,0.171,0.213,0.208,0.202,0.230,0.228,0.166,0.162,0.184,0.215,0.192,0.167,0.229,0.248", "#8eb4ff", "rgba(142,180,255,0.22)"],
+      "spark-c1": ["10.711,10.478,10.865,11.319,10.764,9.458,11.390,10.637,10.944,10.337,10.666,9.773,11.662,10.645,11.080,10.812,10.074,10.391,10.680,10.342,11.776,10.694,10.884,10.153,10.653,11.259,11.137,10.080,10.724,10.454,10.732,8.796,10.553,9.816,11.061,9.202,10.023,9.648,10.123,10.938,10.208,10.948,10.753,11.559,10.169,9.589,11.474,11.344,10.316,11.012,9.576,10.469,10.179,10.916,11.181,10.640,10.723,10.361,10.719,10.087,10.898,10.014,10.772,10.946,9.228,10.237,10.561,10.329,11.053,10.166,11.953,10.702,11.711,11.218,10.367,10.298,10.440,10.755,11.709,9.475,10.673,10.189,10.372,11.003,10.886,11.230,10.205,10.899,10.510,9.797,9.573,10.708,10.875,11.592,10.360,11.402,11.299,10.771,11.183,10.132,10.292,11.591,10.153,10.065,10.832,10.068,10.880,10.643,10.747,11.112,10.617,10.734,10.264,11.106,11.126,11.478,11.104,10.533,12.236,9.362,10.440,10.103,10.564,8.639,9.403,9.961,10.464,10.457,9.623,10.784,11.586,10.019,8.947,10.713,11.099,10.795,9.791,10.089,10.192,10.643", "#2ee9c0", "rgba(46,233,192,0.20)"],
+      "spark-y0": ["2.179,1.638,1.018,2.584,2.016,1.125,1.858,2.286,1.610,2.441,1.422,0.364,2.351,2.440,1.418,3.535,0.290,2.095,0.566,2.311,1.006,1.553,2.126,1.619,1.819,1.053,0.708,2.035,3.254,1.236,0.777,1.549,2.076,0.946,1.767,1.522,1.165,0.981,1.370,2.783,1.921,3.384,0.957,2.050,1.168,2.032,1.667,1.920,3.490,2.656,0.416,2.098,2.877,1.125,0.889,0.747,1.950,1.717,0.574,2.520,0.702,0.429,2.282,2.050,1.653,4.150,1.941,1.955,0.641,1.434,2.350,1.929,2.086,1.884,0.591,1.837,1.885,1.909,2.692,2.793,2.011,0.678,2.275,2.000,3.179,1.664,1.874,1.858,1.407,1.971,0.672,0.519,2.617,2.363,1.120,2.564,1.974,1.881,0.504,1.702,1.751,4.005,1.544,1.130,2.969,1.596,2.598,2.538,0.816,2.303,1.449,2.518,1.055,2.087,1.520,1.785,1.789,2.161,2.026,1.871,0.871,2.143,2.221,1.263,1.392,1.884,1.192,0.551,2.027,1.101,1.898,2.530,1.204,1.870,0.494,0.797,1.568,2.161,2.876,2.512", "#dbeafe", "rgba(219,234,254,0.14)"],
+      "spark-y1": ["90.837,88.550,92.621,95.520,90.354,79.991,95.287,90.166,92.601,88.459,89.870,83.327,99.971,90.673,93.972,90.255,84.584,89.332,90.142,87.640,98.984,90.391,92.324,86.330,90.959,96.474,95.594,84.251,90.822,87.752,90.279,74.808,88.496,82.813,93.328,77.858,85.323,83.266,86.056,92.477,87.484,92.774,89.965,97.161,86.439,81.223,98.651,95.086,88.046,93.547,80.798,88.593,85.867,92.935,94.403,89.870,91.111,86.918,91.671,85.850,92.304,85.921,90.815,92.549,78.386,86.034,90.885,87.707,93.084,86.088,102.980,90.802,99.537,95.937,87.647,88.253,88.936,90.188,99.349,79.604,90.500,85.674,88.785,91.969,93.845,95.395,87.465,92.204,90.455,84.041,80.411,90.647,92.262,98.180,88.284,96.525,95.804,91.408,93.902,85.760,85.981,100.248,86.589,87.139,92.309,84.491,92.949,90.894,91.845,94.816,90.461,88.993,87.433,93.510,94.215,97.807,94.187,89.597,103.614,80.005,89.201,85.543,88.396,73.517,80.218,83.803,87.162,88.414,82.050,90.727,98.220,85.048,75.430,92.207,93.805,91.706,83.712,85.801,85.542,89.616", "#99f6e4", "rgba(153,246,228,0.16)"]
+    };
+    Object.keys(traces).forEach(function (id) {
+      const row = traces[id];
+      drawSpark(id, row[0].split(",").map(Number), row[1], row[2]);
+    });
+    const bits = document.getElementById("bit-before");
+    if (!bits) return;
+    for (let index = 0; index < 25; index += 1) {
+      const dot = document.createElement("span");
+      dot.className = "h-2.5 w-2.5 rounded-full " + (index >= 23 ? "bg-amber" : "bg-white/25");
+      bits.appendChild(dot);
+    }
+  }
+
+  setupCharts();
+  renderScenario();
+  drawSignals();
+  setPath("blocked");
+  initScene();
+})();
+</script>
+</body>
+</html>
