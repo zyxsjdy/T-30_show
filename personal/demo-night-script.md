@@ -58,8 +58,6 @@ Click **Sticky, 0.95**. Then click **Every 4th step**. Leave **Hover** selected.
 
 Nobody outside this room has seen this page yet. Tonight is the very first test. After this talk, I want to know if someone who does not work on radios can say two things back to me: a building blocks the straight path, and the wall of mirrors gives the low drone a path anyway.
 
-Next, I will sit down with people outside the lab, ask them to say it back, and rewrite any line where they stumble.
-
 ## Key learning and what’s next — 1 minute
 
 The big surprise was the drone behind the building: it can actually be the easier one to measure. It hovers almost still beside a fixed mirror, while the high drone's clear path keeps changing as it flies.
